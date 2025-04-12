@@ -26,6 +26,7 @@ from api.schemas.cards import (
     CardsFilterRelease,
     CardsFilterType,
     CardsSortingMode,
+    JaCardUpdateIn
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.card import MissingConjurations
@@ -398,6 +399,7 @@ def get_card_details(
     related_cards = {}
     phoenixborn = None
     summons: list | None = None
+
     if card.phoenixborn or card.card_type == "Phoenixborn":
         # Grab all cards related to this Phoenixborn
         if card.phoenixborn:
@@ -545,6 +547,19 @@ def get_card_details(
             .scalar()
         )
 
+    # 日本語名を返す
+    card.json["name_ja"] = session.query(Card.json["name_ja"]).filter(
+        Card.stub == stub, Card.is_legacy.is_(show_legacy)
+    ).scalar()
+    if not card.json["name_ja"]:
+        card.json["name_ja"] = card.json["name"]
+    
+    card.json["text_ja"] = session.query(Card.json["text_ja"]).filter(
+        Card.stub == stub, Card.is_legacy.is_(show_legacy)
+    ).scalar()
+    if not card.json["text_ja"]:
+        card.json["text_ja"] = card.json["text"]
+
     return {
         "card": card.json,
         "usage": counts,
@@ -624,3 +639,35 @@ def create_card(
     except IntegrityError as e:
         raise APIException(detail="Card already exists!")
     return {"detail": "Card successfully created!"}
+
+
+@router.post(
+    "/cards/{stub}/update-ja",
+    response_model=DetailResponse,
+    responses={
+        404: {"model": DetailResponse, "description": "Card not found."},
+        **AUTH_RESPONSES,
+    },
+)
+def update_card_ja(
+    data: JaCardUpdateIn,
+    stub: str,
+    session: db.Session = Depends(get_session),
+    _=Depends(get_current_user),
+):
+    """Admin-only. Updates the Japanese name and text of a card."""
+
+    # Find the card by stub
+    card = session.query(Card).filter(Card.stub == stub, Card.is_legacy == False,).one_or_none()
+
+    if not card:
+        raise NotFoundException(detail="Card not found.")
+
+    # Update the card's Japanese name and text
+    card.json["name_ja"] = data.name_ja
+    card.json["text_ja"] = data.text_ja
+    db.flag_modified(card, "json")
+    session.commit()
+
+    return {"detail": "日本語を更新しました"}
+

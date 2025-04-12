@@ -124,6 +124,7 @@ class CardOut(BaseModel):
     stub: str
     type: str
     release: CardReleaseEmbeddedOut
+    name_ja: str | None = None
     placement: str | None = None
     cost: list[list[str] | str] | None = None
     dice: list[str] | None = None
@@ -131,6 +132,7 @@ class CardOut(BaseModel):
     magicCost: dict[str, int] | None = None
     effectMagicCost: dict[str, int] | None = None
     text: str | None = None
+    text_ja: str | None = None
     conjurations: list[CardMinimalOut] | None = None
     phoenixborn: str | None = None
     attack: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
@@ -229,6 +231,12 @@ class CardPlacement(str, Enum):
 
 class CardIn(BaseModel):
     name: str = Field(..., min_length=3, max_length=30)
+    name_ja: str | None = Field(
+        None,
+        min_length=1,
+        max_length=30,
+        description="The Japanese name of the card.",
+    )
     card_type: CardType
     placement: CardPlacement = None
     release: str = Field(
@@ -239,6 +247,10 @@ class CardIn(BaseModel):
     text: str = Field(
         None,
         description="The card effect text, formatting using standard Ashes.live card codes.",
+    )
+    text_ja: str | None = Field(
+        None,
+        description="The Japanese effect text, formatting using standard Ashes.live card codes.",
     )
     cost: list[str] | str | None = Field(
         None,
@@ -303,3 +315,17 @@ class CardIn(BaseModel):
         ):
             raise ValueError("required for conjurations and conjured alteration spells")
         return self
+
+class JaCardUpdateIn(BaseModel):
+    """Japanese card information for updating existing cards"""
+
+    name_ja: str | None = Field(
+        None,
+        min_length=1,
+        max_length=30,
+        description="The Japanese name of the card.",
+    )
+    text_ja: str | None = Field(
+        None,
+        description="The Japanese effect text, formatting using standard Ashes.live card codes.",
+    )
